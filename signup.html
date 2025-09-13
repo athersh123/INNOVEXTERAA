@@ -7,18 +7,86 @@
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
-  *{box-sizing:border-box;margin:0;padding:0;font-family:'Poppins',sans-serif;}
-  body,html{height:100%;background:#05141d;color:#fff;display:flex;align-items:center;justify-content:center;}
-  .box{position:relative;width:90%;max-width:420px;background:#05141d;border:2px solid rgba(0,255,255,.4);box-shadow:0 0 18px rgba(0,255,255,.6);padding:40px 32px;border-radius:6px;}
-  .box::before{content:"";position:absolute;inset:0;background:linear-gradient(135deg,transparent 50%,rgba(0,255,255,.25) 50%);pointer-events:none;}
-  h2{margin-bottom:24px;text-align:center;font-weight:700;}
-  input{width:100%;padding:12px 10px;background:transparent;border:none;border-bottom:2px solid #1f3543;color:#fff;font-size:.95rem;margin-bottom:18px;}
-  input:focus{outline:none;border-color:#00e1ff;}
-  .reg-btn{width:100%;padding:12px;background:linear-gradient(90deg,#00d4ff,#00ffc8);border:none;border-radius:25px;font-weight:600;color:#002733;cursor:pointer;margin-bottom:12px;}
-  .google-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:11px 0;background:#fff;border:none;border-radius:25px;font-weight:600;color:#002733;cursor:pointer;margin-bottom:8px;}
-  .google-btn img{width:20px;height:20px;}
-  p{text-align:center;font-size:.85rem;margin-top:14px;}
-  a{color:#00e1ff;text-decoration:none;}
+  *{
+    box-sizing:border-box;
+    margin:0;padding:0;
+    font-family:'Poppins',sans-serif;
+  }
+  body,html{
+    height:100%;
+    background:#05141d;
+    color:#fff;
+    display:flex;align-items:center;
+    justify-content:center;
+  }
+  .box{position:relative;
+    width:90%;
+    max-width:420px;
+    background:#05141d;
+    border:2px solid rgba(0,255,255,.4);
+    box-shadow:0 0 18px rgba(0,255,255,.6);
+    padding:40px 32px;
+    border-radius:6px;
+  }
+  .box::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:linear-gradient(135deg,transparent 50%,rgba(0,255,255,.25) 50%);
+    pointer-events:none;
+  }
+  h2{margin-bottom:24px;
+    text-align:center;
+    font-weight:700;
+  }
+  input{
+    width:100%;
+    padding:12px 10px;
+    background:transparent;
+    border:none;
+    border-bottom:2px solid #1f3543;
+    color:#fff;
+    font-size:.95rem;
+    margin-bottom:18px;
+  }
+  input:focus{outline:none;
+    border-color:#00e1ff;
+  }
+  .reg-btn{
+    width:100%;
+    padding:12px;
+    background:linear-gradient(90deg,#00d4ff,#00ffc8);
+    border:none;
+    border-radius:25px;
+    font-weight:600;
+    color:#002733;
+    cursor:pointer;
+    margin-bottom:12px;
+  }
+  .google-btn{
+    display:flex;
+    align-items:center;
+    justify-content:center;gap:10px;width:100%;padding:11px 0;background:#fff;
+    border:none;
+    border-radius:25px;
+    font-weight:600;
+    color:#002733;
+    cursor:pointer;
+    margin-bottom:8px;
+  }
+  .google-btn img{
+    width:20px;
+    height:20px;
+  }
+  p{
+    text-align:center;
+    font-size:.85rem;
+    margin-top:14px;
+  }
+  a{
+    color:#00e1ff;
+    text-decoration:none;
+    }
 </style>
 </head>
 <body>
@@ -32,7 +100,6 @@
   </form>
 
 <script>
-  // simple front‑end signup store in localStorage
   const usersKey='demoUsers';
   const users=JSON.parse(localStorage.getItem(usersKey)||'[]');
   document.getElementById('signupForm').addEventListener('submit',e=>{

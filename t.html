@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced FRA Atlas & 3D WebGIS DSS</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0f23, #1a1a2e, #16213e, #0f0f23);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+            color: #fff;
+            overflow-x: hidden;
+        }
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .header {
+            background: rgba(15, 15, 35, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 1.5rem 2rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .header h1 {
+            background: linear-gradient(135deg, #00ff87, #60efff, #ff006e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 2rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            text-shadow: 0 0 20px rgba(0,255,135,0.5);
+        }
+
+        .header .subtitle {
+            color: #a0a0a0;
+            font-size: 1rem;
+            margin-top: 0.5rem;
+            text-shadow: 0 0 10px rgba(255,255,255,0.2);
+        }
+
+        .container {
+            display: flex;
+            height: calc(100vh - 100px);
+        }
+
+        .sidebar {
+            width: 380px;
+            background: rgba(15, 15, 35, 0.9);
+            backdrop-filter: blur(20px);
+            padding: 2rem;
+            overflow-y: auto;
+            box-shadow: 8px 0 32px rgba(0,0,0,0.3);
+            border-right: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+            background: radial-gradient(circle at 50% 50%, rgba(0,255,135,0.1) 0%, transparent 70%);
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+            border-radius: 0;
+            position: relative;
+        }
+
+        #threejs-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .control-section {
+            margin-bottom: 2rem;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+            backdrop-filter: blur(15px);
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .control-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .control-section:hover::before {
+            left: 100%;
+        }
+
+        .control-section h3 {
+            background: linear-gradient(135deg, #00ff87, #60efff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1.5rem;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-shadow: 0 0 10px rgba(0,255,135,0.3);
+        }
+
+        .filter-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .filter-group label {
+            display: block;
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+            color: #e0e0e0;
+            text-shadow: 0 0 5px rgba(255,255,255,0.3);
+        }
+
+        select, input {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 12px;
+            font-size: 1rem;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            color: #fff;
+            transition: all 0.4s ease;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #00ff87;
+            box-shadow: 0 0 20px rgba(0,255,135,0.3);
+            transform: translateY(-2px);
+        }
+
+        .search-container {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+
+        .search-input {
+            padding-left: 3rem;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #00ff87;
+            font-size: 1.2rem;
+        }
+
+        .layer-controls {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .layer-toggle {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            background: linear-gradient(135deg, rgba(0,255,135,0.2), rgba(96,239,255,0.2));
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .layer-toggle:hover {
+            background: linear-gradient(135deg, rgba(0,255,135,0.3), rgba(96,239,255,0.3));
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0,255,135,0.2);
+        }
+
+        .layer-toggle input {
+            width: auto;
+            margin-right: 1rem;
+            transform: scale(1.2);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, rgba(0,255,135,0.3), rgba(96,239,255,0.3));
+            backdrop-filter: blur(15px);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 16px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 15px 40px rgba(0,255,135,0.3);
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 10px rgba(255,255,255,0.5);
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .dss-panel {
+            background: linear-gradient(135deg, rgba(255,0,110,0.3), rgba(0,255,135,0.3));
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .dss-panel h3 {
+            background: linear-gradient(135deg, #ff006e, #00ff87);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .scheme-recommendations {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .scheme-card {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border-left: 4px solid #00ff87;
+            transition: all 0.4s ease;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .scheme-card:hover {
+            transform: translateX(10px);
+            box-shadow: 0 10px 30px rgba(0,255,135,0.2);
+        }
+
+        .scheme-title {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: #00ff87;
+        }
+
+        .scheme-eligibility {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            color: #e0e0e0;
+        }
+
+        .priority-high { 
+            border-left-color: #ff006e !important;
+            animation: pulse 2s infinite;
+        }
+        .priority-medium { border-left-color: #ffa726 !important; }
+        .priority-low { border-left-color: #00ff87 !important; }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 10px rgba(255,0,110,0.5); }
+            50% { box-shadow: 0 0 20px rgba(255,0,110,0.8); }
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #00ff87, #60efff);
+            color: #000;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 1rem;
+            transition: all 0.4s ease;
+            width: 100%;
+            margin-top: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(0,255,135,0.4);
+            background: linear-gradient(135deg, #60efff, #00ff87);
+        }
+
+        .chart-container {
+            height: 250px;
+            margin-top: 1.5rem;
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 1rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .map-overlay {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(15, 15, 35, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 1.5rem;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            z-index: 1000;
+            min-width: 250px;
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #fff;
+        }
+
+        .map-overlay h4 {
+            color: #00ff87;
+            margin-bottom: 1rem;
+            text-shadow: 0 0 10px rgba(0,255,135,0.5);
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 15, 35, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            transition: opacity 0.5s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .loading-content {
+            background: linear-gradient(135deg, rgba(0,255,135,0.2), rgba(96,239,255,0.2));
+            backdrop-filter: blur(20px);
+            padding: 3rem;
+            border-radius: 20px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.1);
+            border-top: 4px solid #00ff87;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.5rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .mode-switcher {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1500;
+            display: flex;
+            gap: 1rem;
+        }
+
+        .mode-btn {
+            padding: 0.75rem 1.5rem;
+            background: rgba(15, 15, 35, 0.9);
+            backdrop-filter: blur(15px);
+            border: 2px solid rgba(0,255,135,0.3);
+            border-radius: 25px;
+            color: #00ff87;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            font-weight: 600;
+        }
+
+        .mode-btn.active {
+            background: linear-gradient(135deg, #00ff87, #60efff);
+            color: #000;
+            border-color: transparent;
+            box-shadow: 0 5px 20px rgba(0,255,135,0.4);
+        }
+
+        .mode-btn:hover:not(.active) {
+            background: rgba(0,255,135,0.2);
+            transform: translateY(-2px);
+        }
+
+        .advanced-controls {
+            margin-top: 1.5rem;
+            padding: 1.5rem;
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .slider-group {
+            margin-bottom: 1rem;
+        }
+
+        .slider {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.2);
+            outline: none;
+            /* -webkit-appearance: none; */
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00ff87, #60efff);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0,255,135,0.5);
+        }
+
+        .floating-panels {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            gap: 1rem;
+            z-index: 1000;
+        }
+
+        .floating-panel {
+            background: rgba(15, 15, 35, 0.9);
+            backdrop-filter: blur(20px);
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 0.9rem;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: 400px;
+            }
+            
+            .map-container {
+                height: calc(100vh - 500px);
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .mode-switcher {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>
+            <i class="fas fa-cube"></i>
+            Advanced FRA Atlas & 3D WebGIS Decision Support System
+        </h1>
+        <div class="subtitle">AI-Powered Forest Rights Act Implementation with Advanced 3D Visualization | Ministry of Tribal Affairs</div>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <!-- Search Section -->
+            <div class="control-section">
+                <h3><i class="fas fa-search"></i> Smart Search & Filter</h3>
+                <div class="search-container">
+                    <input type="text" class="search-input" placeholder="AI-powered search: villages, coordinates, patta holders...">
+                    <i class="fas fa-search search-icon"></i>
+                </div>
+                <div class="filter-group">
+                    <label><i class="fas fa-map-marker-alt"></i> State</label>
+                    <select id="stateFilter">
+                        <option value="all">All States</option>
+                        <option value="mp">Madhya Pradesh</option>
+                        <option value="tripura">Tripura</option>
+                        <option value="odisha" selected>Odisha</option>
+                        <option value="telangana">Telangana</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label><i class="fas fa-city"></i> District</label>
+                    <select id="districtFilter">
+                        <option value="all">All Districts</option>
+                        <option value="rayagada" selected>Rayagada</option>
+                        <option value="koraput">Koraput</option>
+                        <option value="kandhamal">Kandhamal</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Advanced Layer Controls -->
+            <div class="control-section">
+                <h3><i class="fas fa-layer-group"></i> Advanced Layer Controls</h3>
+                <div class="layer-controls">
+                    <div class="layer-toggle">
+                        <input type="checkbox" id="ifrLayer" checked>
+                        <label for="ifrLayer"><i class="fas fa-home"></i> Individual Forest Rights (IFR)</label>
+                    </div>
+                    <div class="layer-toggle">
+                        <input type="checkbox" id="cfrLayer" checked>
+                        <label for="cfrLayer"><i class="fas fa-users"></i> Community Forest Rights (CFR)</label>
+                    </div>
+                    <div class="layer-toggle">
+                        <input type="checkbox" id="assetsLayer" checked>
+                        <label for="assetsLayer"><i class="fas fa-robot"></i> AI-Detected Assets</label>
+                    </div>
+                    <div class="layer-toggle">
+                        <input type="checkbox" id="satelliteLayer">
+                        <label for="satelliteLayer"><i class="fas fa-satellite"></i> Satellite Imagery</label>
+                    </div>
+                    <div class="layer-toggle">
+                        <input type="checkbox" id="heatmapLayer">
+                        <label for="heatmapLayer"><i class="fas fa-fire"></i> Population Heatmap</label>
+                    </div>
+                    <div class="layer-toggle">
+                        <input type="checkbox" id="terrainLayer">
+                        <label for="terrainLayer"><i class="fas fa-mountain"></i> 3D Terrain</label>
+                    </div>
+                </div>
+
+                <div class="advanced-controls">
+                    <h4 style="color: #60efff; margin-bottom: 1rem;"><i class="fas fa-sliders-h"></i> Advanced Controls</h4>
+                    <div class="slider-group">
+                        <label>Opacity: <span id="opacityValue">75%</span></label>
+                        <input type="range" class="slider" id="opacitySlider" min="0" max="100" value="75">
+                    </div>
+                    <div class="slider-group">
+                        <label>3D Height: <span id="heightValue">100%</span></label>
+                        <input type="range" class="slider" id="heightSlider" min="0" max="200" value="100">
+                    </div>
+                    <div class="slider-group">
+                        <label>Animation Speed: <span id="speedValue">Normal</span></label>
+                        <input type="range" class="slider" id="speedSlider" min="1" max="10" value="5">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Enhanced Statistics -->
+            <div class="control-section">
+                <h3><i class="fas fa-chart-line"></i> Real-time FRA Analytics</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">1,284</div>
+                        <div class="stat-label">IFR Claims</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">967</div>
+                        <div class="stat-label">Approved</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">247</div>
+                        <div class="stat-label">CFR Areas</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">1,573</div>
+                        <div class="stat-label">Beneficiaries</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="progressChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Enhanced Decision Support System -->
+            <div class="control-section dss-panel">
+                <h3><i class="fas fa-brain"></i> AI-Powered Decision Support</h3>
+                <div class="scheme-recommendations">
+                    <div class="scheme-card priority-high">
+                        <div class="scheme-title"><i class="fas fa-tint"></i> Jal Jeevan Mission</div>
+                        <div class="scheme-eligibility">247 households eligible - Water scarcity detected via satellite AI</div>
+                    </div>
+                    <div class="scheme-card priority-medium">
+                        <div class="scheme-title"><i class="fas fa-seedling"></i> PM-KISAN</div>
+                        <div class="scheme-eligibility">489 farmers eligible - Agricultural plots mapped via ML</div>
+                    </div>
+                    <div class="scheme-card priority-low">
+                        <div class="scheme-title"><i class="fas fa-hammer"></i> MGNREGA</div>
+                        <div class="scheme-eligibility">203 households qualified - Employment needs analyzed</div>
+                    </div>
+                    <div class="scheme-card priority-medium">
+                        <div class="scheme-title"><i class="fas fa-home"></i> PM Awas Yojana</div>
+                        <div class="scheme-eligibility">156 families need housing - AI assessment complete</div>
+                    </div>
+                </div>
+                <button class="btn" onclick="generateAdvancedDSSReport()">
+                    <i class="fas fa-magic"></i> Generate AI Report
+                </button>
+            </div>
+        </div>
+
+        <div class="map-container">
+            <!-- Mode Switcher -->
+            <div class="mode-switcher">
+                 <div class="mode-btn" onclick="window.location.href='upload.html'" style="margin-left:30px">
+  <i class="fas fa-upload"></i> Upload
+</div>
+
+                <div class="mode-btn active" onclick="switchMode('2d')"><i class="fas fa-map"></i> 2D View</div>
+                <div class="mode-btn" onclick="switchMode('3d')"><i class="fas fa-cube"></i> 3D View</div>
+                <div class="mode-btn" onclick="switchMode('satellite')"><i class="fas fa-satellite"></i> Satellite</div>
+              
+            </div>
+
+            <div id="map"></div>
+            <div id="threejs-container"></div>
+            
+            <!-- Enhanced Map Info Overlay -->
+            <div class="map-overlay">
+                <h4><i class="fas fa-info-circle"></i> Smart Area Analysis</h4>
+                <div id="selectionInfo">
+                    <p><strong>Village:</strong> Bhanjanagar</p>
+                    <p><strong>Block:</strong> Rayagada</p>
+                    <p><strong>IFR Pattas:</strong> 23 <span style="color: #00ff87;">✓</span></p>
+                    <p><strong>Forest Cover:</strong> 67% <i class="fas fa-tree" style="color: #00ff87;"></i></p>
+                    <p><strong>AI Confidence:</strong> 94% <i class="fas fa-robot" style="color: #60efff;"></i></p>
+                    <p><strong>Risk Level:</strong> <span style="color: #00ff87;">Low</span></p>
+                </div>
+            </div>
+
+            <!-- Floating Status Panels -->
+            <div class="floating-panels">
+                <div class="floating-panel">
+                    <i class="fas fa-satellite-dish"></i> Real-time Data: Active
+                </div>
+                <div class="floating-panel">
+                    <i class="fas fa-shield-alt"></i> Security: Encrypted
+                </div>
+                <div class="floating-panel">
+                    <i class="fas fa-sync-alt"></i> Last Update: 2 min ago
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay" style="opacity: 0; pointer-events: none;">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <h3><i class="fas fa-magic"></i> AI Processing in Progress...</h3>
+            <p>Analyzing satellite imagery, terrain data, and FRA records</p>
+            <p style="margin-top: 1rem; opacity: 0.7;">Using advanced machine learning algorithms</p>
+        </div>
+    </div>
+
+    <script>
+        let currentMode = '2d';
+        let scene, camera, renderer;
+        let animationId;
+        
+        // Initialize the map
+        const map = L.map('map').setView([19.5, 84.0], 8);
+
+        // Add base layers
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        });
+
+        const satelliteLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+            attribution: 'Google Satellite'
+        });
+
+        osmLayer.addTo(map);
+
+        // Enhanced demo data with more realistic coordinates
+        const ifrAreas = [
+            {name: "Bhanjanagar Village", coords: [19.3, 83.8], status: "Approved", households: 23, elevation: 200},
+            {name: "Karlapat Village", coords: [19.7, 83.5], status: "Pending", households: 15, elevation: 300},
+            {name: "Gunupur Village", coords: [19.1, 84.2], status: "Approved", households: 34, elevation: 150},
+            {name: "Padmapur Village", coords: [19.4, 84.1], status: "Rejected", households: 12, elevation: 250},
+            {name: "Kalyansinghpur", coords: [19.6, 83.9], status: "Approved", households: 28, elevation: 180},
+            {name: "Bissam Cuttack", coords: [19.2, 83.7], status: "Pending", households: 19, elevation: 220}
+        ];
+
+        const cfrAreas = [
+            {name: "Karlapat Forest", coords: [19.6, 83.4], area: "450 ha", status: "Active", biodiversity: 85},
+            {name: "Rayagada Reserve", coords: [19.2, 84.3], area: "320 ha", status: "Proposed", biodiversity: 72},
+            {name: "Deomali Hills", coords: [19.8, 83.6], area: "680 ha", status: "Active", biodiversity: 91},
+            {name: "Chatikona Reserve", coords: [19.1, 83.9], area: "290 ha", status: "Under Review", biodiversity: 78}
+        ];
+
+        // Initialize Three.js scene
+        function initThreeJS() {
+            const container = document.getElementById('threejs-container');
+            
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setClearColor(0x000000, 0);
+            container.appendChild(renderer.domElement);
+
+            // Add ambient light
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            scene.add(ambientLight);
+
+            // Add directional light
+            const directionalLight = new THREE.DirectionalLight(0x00ff87, 1);
+            directionalLight.position.set(10, 10, 5);
+            scene.add(directionalLight);
+
+            // Create 3D terrain
+            create3DTerrain();
+            
+            // Create 3D data visualizations
+            create3DDataPoints();
+
+            camera.position.set(0, 5, 10);
+            camera.lookAt(0, 0, 0);
+
+            animate();
+        }
+
+        function create3DTerrain() {
+            const geometry = new THREE.PlaneGeometry(20, 20, 50, 50);
+            const material = new THREE.ShaderMaterial({
+                uniforms: {
+                    time: { value: 0 },
+                    color1: { value: new THREE.Color(0x00ff87) },
+                    color2: { value: new THREE.Color(0x60efff) }
+                },
+                vertexShader: `
+                    uniform float time;
+                    varying vec2 vUv;
+                    varying float vElevation;
+                    
+                    void main() {
+                        vUv = uv;
+                        vec4 modelPosition = modelMatrix * vec4(position, 1.0);
+                        
+                        float elevation = sin(modelPosition.x * 0.3 + time * 0.5) * 
+                                        sin(modelPosition.z * 0.3 + time * 0.3) * 2.0;
+                        
+                        modelPosition.y += elevation;
+                        vElevation = elevation;
+                        
+                        vec4 viewPosition = viewMatrix * modelPosition;
+                        vec4 projectedPosition = projectionMatrix * viewPosition;
+                        
+                        gl_Position = projectedPosition;
+                    }
+                `,
+                fragmentShader: `
+                    uniform vec3 color1;
+                    uniform vec3 color2;
+                    varying vec2 vUv;
+                    varying float vElevation;
+                    
+                    void main() {
+                        float mixStrength = (vElevation + 2.0) / 4.0;
+                        vec3 color = mix(color1, color2, mixStrength);
+                        gl_FragColor = vec4(color, 0.8);
+                    }
+                `,
+                transparent: true
+            });
+
+            const terrain = new THREE.Mesh(geometry, material);
+            terrain.rotation.x = -Math.PI / 2;
+            terrain.visible = false;
+            terrain.name = 'terrain';
+            scene.add(terrain);
+        }
+
+        function create3DDataPoints() {
+            // Create 3D representation of IFR areas
+            ifrAreas.forEach((area, index) => {
+                const height = area.households * 0.1;
+                const geometry = new THREE.CylinderGeometry(0.2, 0.2, height, 8);
+                const material = new THREE.MeshPhongMaterial({
+                    color: area.status === 'Approved' ? 0x00ff87 : 
+                           area.status === 'Pending' ? 0xffa726 : 0xff006e,
+                    transparent: true,
+                    opacity: 0.8
+                });
+                
+                const cylinder = new THREE.Mesh(geometry, material);
+                cylinder.position.set(
+                    (index - 2.5) * 2, 
+                    height / 2, 
+                    Math.sin(index) * 2
+                );
+                cylinder.userData = { type: 'ifr', data: area };
+                cylinder.visible = false;
+                cylinder.name = 'dataPoint';
+                scene.add(cylinder);
+
+                // Add floating label
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = 256;
+                canvas.height = 64;
+                context.fillStyle = 'rgba(0, 255, 135, 0.8)';
+                context.fillRect(0, 0, 256, 64);
+                context.fillStyle = '#000';
+                context.font = '16px Arial';
+                context.fillText(area.name, 10, 25);
+               // context.fillText(${area.households} households, 10, 45);
+               context.fillText(`${area.households} households`, 10, 45);
+
+
+                const texture = new THREE.CanvasTexture(canvas);
+                const labelMaterial = new THREE.SpriteMaterial({ map: texture });
+                const label = new THREE.Sprite(labelMaterial);
+                label.position.set(cylinder.position.x, height + 1, cylinder.position.z);
+                label.scale.set(2, 0.5, 1);
+                label.visible = false;
+                label.name = 'label';
+                scene.add(label);
+            });
+
+            // Create animated particles
+            createParticleSystem();
+        }
+
+        function createParticleSystem() {
+            const particleCount = 200;
+            const particles = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+
+            for (let i = 0; i < particleCount * 3; i += 3) {
+                positions[i] = (Math.random() - 0.5) * 20;
+                positions[i + 1] = Math.random() * 10;
+                positions[i + 2] = (Math.random() - 0.5) * 20;
+
+                colors[i] = Math.random();
+                colors[i + 1] = Math.random();
+                colors[i + 2] = Math.random();
+            }
+
+            particles.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            particles.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const particleMaterial = new THREE.PointsMaterial({
+                size: 0.1,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.6
+            });
+
+            const particleSystem = new THREE.Points(particles, particleMaterial);
+            particleSystem.visible = false;
+            particleSystem.name = 'particles';
+            scene.add(particleSystem);
+        }
+
+        function animate() {
+            animationId = requestAnimationFrame(animate);
+
+            if (currentMode === '3d') {
+                // Update terrain animation
+                const terrain = scene.getObjectByName('terrain');
+                if (terrain && terrain.visible) {
+                    terrain.material.uniforms.time.value += 0.01;
+                }
+
+                // Rotate camera around scene
+                const time = Date.now() * 0.0005;
+                camera.position.x = Math.cos(time) * 15;
+                camera.position.z = Math.sin(time) * 15;
+                camera.lookAt(0, 0, 0);
+
+                // Animate particles
+                const particles = scene.getObjectByName('particles');
+                if (particles && particles.visible) {
+                    particles.rotation.y += 0.005;
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function switchMode(mode) {
+            currentMode = mode;
+            
+            // Update button states
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            const container = document.getElementById('threejs-container');
+            
+            switch(mode) {
+                case '2d':
+                    container.style.display = 'none';
+                    map.getContainer().style.opacity = '1';
+                    break;
+                    
+                case '3d':
+                    container.style.display = 'block';
+                    map.getContainer().style.opacity = '0.3';
+                    scene.children.forEach(child => {
+                        if (child.name === 'terrain' || child.name === 'dataPoint' || child.name === 'label') {
+                            child.visible = true;
+                        }
+                    });
+                    break;
+                    
+                case 'satellite':
+                    container.style.display = 'none';
+                    map.getContainer().style.opacity = '1';
+                    map.removeLayer(osmLayer);
+                    satelliteLayer.addTo(map);
+                    break;
+            }
+        }
+
+        // Enhanced IFR markers with animations
+        ifrAreas.forEach((area, index) => {
+            const color = area.status === 'Approved' ? '#00ff87' : 
+                         area.status === 'Pending' ? '#ffa726' : '#ff006e';
+            
+            const marker = L.circleMarker(area.coords, {
+                color: color,
+                fillColor: color,
+                fillOpacity: 0.8,
+                radius: 8 + (area.households / 5),
+                className: 'animated-marker'
+            }).addTo(map);
+
+            // Add pulsing animation for pending cases
+            if (area.status === 'Pending') {
+                setInterval(() => {
+                    marker.setRadius(marker.getRadius() === 15 ? 8 : 15);
+                }, 1000);
+            }
+
+            marker.bindPopup(`
+                <div style="font-family: Arial, sans-serif; background: linear-gradient(135deg, rgba(0,255,135,0.1), rgba(96,239,255,0.1)); padding: 1rem; border-radius: 8px; color: #333;">
+                    <h4 style="color: #00ff87; margin-bottom: 0.5rem;">${area.name}</h4>
+                    <p><strong>Status:</strong> <span style="color: ${color};">${area.status}</span></p>
+                    <p><strong>Households:</strong> ${area.households}</p>
+                    <p><strong>Elevation:</strong> ${area.elevation}m</p>
+                    <p><strong>Type:</strong> Individual Forest Rights</p>
+                    <div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(0,255,135,0.1); border-radius: 4px;">
+                        <small><i class="fas fa-robot"></i> AI Risk Assessment: ${area.status === 'Approved' ? 'Low' : area.status === 'Pending' ? 'Medium' : 'High'}</small>
+                    </div>
+                </div>
+            `);
+        });
+
+        // Enhanced CFR areas with gradient fills
+        cfrAreas.forEach(area => {
+            const polygon = L.circle(area.coords, {
+                color: '#00ff87',
+                fillColor: '#27ae60',
+                fillOpacity: 0.4,
+                radius: 3000 + (area.biodiversity * 20),
+                className: 'cfr-area'
+            }).addTo(map);
+
+            polygon.bindPopup(`
+                <div style="font-family: Arial, sans-serif; background: linear-gradient(135deg, rgba(0,255,135,0.1), rgba(96,239,255,0.1)); padding: 1rem; border-radius: 8px; color: #333;">
+                    <h4 style="color: #00ff87; margin-bottom: 0.5rem;">${area.name}</h4>
+                    <p><strong>Area:</strong> ${area.area}</p>
+                    <p><strong>Status:</strong> ${area.status}</p>
+                    <p><strong>Biodiversity Index:</strong> ${area.biodiversity}%</p>
+                    <p><strong>Type:</strong> Community Forest Rights</p>
+                    <div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(0,255,135,0.1); border-radius: 4px;">
+                        <small><i class="fas fa-leaf"></i> Conservation Priority: ${area.biodiversity > 85 ? 'High' : area.biodiversity > 75 ? 'Medium' : 'Standard'}</small>
+                    </div>
+                </div>
+            `);
+        });
+
+        // Enhanced AI asset detection with more variety
+        const assets = [
+            {type: "Water Body", coords: [19.35, 83.85], confidence: 0.94, icon: '💧'},
+            {type: "Agricultural Land", coords: [19.31, 83.79], confidence: 0.89, icon: '🌾'},
+            {type: "Homestead", coords: [19.33, 83.82], confidence: 0.96, icon: '🏠'},
+            {type: "Forest Clearing", coords: [19.28, 83.88], confidence: 0.87, icon: '🌳'},
+            {type: "Road Network", coords: [19.36, 83.77], confidence: 0.92, icon: '🛣'},
+            {type: "Mining Site", coords: [19.25, 83.85], confidence: 0.78, icon: '⛏'},
+            {type: "Solar Installation", coords: [19.39, 83.81], confidence: 0.85, icon: '☀'},
+            {type: "Pond/Tank", coords: [19.32, 83.86], confidence: 0.91, icon: '🏊'}
+        ];
+
+        assets.forEach(asset => {
+            const marker = L.marker(asset.coords, {
+                icon: L.divIcon({
+                    html: `
+                        <div style="
+                            background: linear-gradient(135deg, rgba(0,255,135,0.9), rgba(96,239,255,0.9)); 
+                            border-radius: 50%; 
+                            padding: 8px; 
+                            border: 2px solid #fff;
+                            box-shadow: 0 4px 15px rgba(0,255,135,0.4);
+                            animation: pulse 2s infinite;
+                            font-size: 14px;
+                        ">${asset.icon}</div>
+                        <style>
+                            @keyframes pulse {
+                                0%, 100% { transform: scale(1); }
+                                50% { transform: scale(1.1); }
+                            }
+                        </style>
+                    `,
+                    className: 'asset-marker',
+                    iconSize: [35, 35]
+                })
+            }).addTo(map);
+
+            marker.bindPopup(`
+                <div style="font-family: Arial, sans-serif; background: linear-gradient(135deg, rgba(0,255,135,0.1), rgba(96,239,255,0.1)); padding: 1rem; border-radius: 8px; color: #333;">
+                    <h4 style="color: #60efff; margin-bottom: 0.5rem;"><i class="fas fa-robot"></i> AI Detected Asset</h4>
+                    <p><strong>Type:</strong> ${asset.type}</p>
+                    <p><strong>Confidence:</strong> ${(asset.confidence * 100).toFixed(0)}%</p>
+                    <p><strong>Detection Method:</strong> Satellite AI Analysis</p>
+                    <p><strong>Last Verified:</strong> ${Math.floor(Math.random() * 30) + 1} days ago</p>
+                    <div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(96,239,255,0.1); border-radius: 4px;">
+                        <small><i class="fas fa-satellite"></i> Source: Sentinel-2 / Landsat-8</small>
+                    </div>
+                </div>
+            `);
+        });
+
+        // Initialize enhanced progress chart
+        const ctx = document.getElementById('progressChart').getContext('2d');
+        const progressChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Approved', 'Pending', 'Under Review', 'Rejected'],
+                datasets: [{
+                    data: [967, 234, 121, 83],
+                    backgroundColor: ['#00ff87', '#ffa726', '#60efff', '#ff006e'],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: '#fff',
+                            font: {
+                                size: 12
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Enhanced layer toggle functionality
+        document.getElementById('satelliteLayer').addEventListener('change', function() {
+            if (this.checked) {
+                map.removeLayer(osmLayer);
+                satelliteLayer.addTo(map);
+            } else {
+                map.removeLayer(satelliteLayer);
+                osmLayer.addTo(map);
+            }
+        });
+
+        // Advanced slider controls
+        document.getElementById('opacitySlider').addEventListener('input', function() {
+            document.getElementById('opacityValue').textContent = this.value + '%';
+            // Apply opacity to map layers
+            const opacity = this.value / 100;
+            map.eachLayer(layer => {
+                if (layer.setOpacity) layer.setOpacity(opacity);
+            });
+        });
+
+        document.getElementById('heightSlider').addEventListener('input', function() {
+            document.getElementById('heightValue').textContent = this.value + '%';
+            // Update 3D heights if in 3D mode
+            if (currentMode === '3d') {
+                scene.children.forEach(child => {
+                    if (child.name === 'dataPoint') {
+                        child.scale.y = this.value / 100;
+                    }
+                });
+            }
+        });
+
+        document.getElementById('speedSlider').addEventListener('input', function() {
+            const speeds = ['Very Slow', 'Slow', 'Slow', 'Normal', 'Normal', 'Normal', 'Fast', 'Fast', 'Very Fast', 'Extreme'];
+            document.getElementById('speedValue').textContent = speeds[this.value - 1];
+        });
+
+        // Enhanced AI processing simulation
+        function simulateAdvancedAIProcessing() {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            loadingOverlay.style.opacity = '1';
+            loadingOverlay.style.pointerEvents = 'all';
+            
+            // Simulate different processing stages
+            const stages = [
+                "Initializing AI models...",
+                "Processing satellite imagery...",
+                "Analyzing terrain data...",
+                "Cross-referencing FRA records...",
+                "Applying machine learning algorithms...",
+                "Generating recommendations...",
+                "Finalizing report..."
+            ];
+            
+            let currentStage = 0;
+            const stageInterval = setInterval(() => {
+                if (currentStage < stages.length) {
+                    document.querySelector('.loading-content p').textContent = stages[currentStage];
+                    currentStage++;
+                } else {
+                    clearInterval(stageInterval);
+                }
+            }, 500);
+            
+            setTimeout(() => {
+                loadingOverlay.style.opacity = '0';
+                loadingOverlay.style.pointerEvents = 'none';
+                
+                // Update stats with new "processed" data
+                const statNumbers = document.querySelectorAll('.stat-number');
+                statNumbers[0].textContent = '1,347';
+                statNumbers[1].textContent = '1,024';
+                statNumbers[2].textContent = '267';
+                statNumbers[3].textContent = '1,691';
+            }, 4000);
+        }
+
+        // Enhanced DSS Report Generation
+        function generateAdvancedDSSReport() {
+            simulateAdvancedAIProcessing();
+            setTimeout(() => {
+                const reportDetails = `
+🤖 AI-POWERED DSS REPORT GENERATED
+
+📊 KEY INSIGHTS:
+• 247 households need immediate water access (High Priority)
+• 489 farmers eligible for PM-KISAN scheme
+• 203 households qualified for MGNREGA employment
+• 156 families require housing under PM Awas Yojana
+
+🎯 PRIORITY INTERVENTIONS:
+1. Water Infrastructure: ₹1.8 Crores budget required
+2. Agricultural Support: ₹2.3 Crores subsidy allocation
+3. Employment Generation: 15,000+ person-days
+4. Housing Development: ₹3.1 Crores construction cost
+
+🌍 ENVIRONMENTAL IMPACT:
+• Forest cover improvement potential: 12%
+• Carbon sequestration capacity: 2,400 tonnes/year
+• Biodiversity conservation score: 87/100
+
+📈 IMPLEMENTATION TIMELINE:
+Phase 1 (0-6 months): Water & Emergency housing
+Phase 2 (6-18 months): Agricultural & employment schemes
+Phase 3 (18-36 months): Long-term conservation projects
+
+💡 AI CONFIDENCE LEVEL: 94.7%
+📅 Next Review: Auto-scheduled in 30 days
+                `;
+                
+                alert(reportDetails);
+                
+                // Add a subtle success animation
+                document.querySelector('.dss-panel').style.animation = 'pulse 1s ease-in-out';
+                setTimeout(() => {
+                    document.querySelector('.dss-panel').style.animation = '';
+                }, 1000);
+            }, 4500);
+        }
+
+        // Enhanced state/district filter functionality
+        document.getElementById('stateFilter').addEventListener('change', function() {
+            simulateAdvancedAIProcessing();
+        });
+
+        document.getElementById('districtFilter').addEventListener('change', function() {
+            simulateAdvancedAIProcessing();
+        });
+
+        // Real-time data simulation with more realistic updates
+        setInterval(() => {
+            const randomStat = Math.floor(Math.random() * 4);
+            const statCards = document.querySelectorAll('.stat-number');
+            const currentValue = parseInt(statCards[randomStat].textContent.replace(',', ''));
+            const change = Math.random() > 0.7 ? 1 : 0; // 30% chance of increase
+            if (change) {
+                statCards[randomStat].textContent = (currentValue + change).toLocaleString();
+                
+                // Add a subtle flash effect
+                statCards[randomStat].parentElement.style.boxShadow = '0 0 20px rgba(0,255,135,0.8)';
+                setTimeout(() => {
+                    statCards[randomStat].parentElement.style.boxShadow = '';
+                }, 500);
+            }
+        }, 8000);
+
+        // Enhanced map click functionality with AI analysis
+        map.on('click', function(e) {
+            const info = document.getElementById('selectionInfo');
+            const lat = e.latlng.lat.toFixed(4);
+            const lng = e.latlng.lng.toFixed(4);
+            const forestCover = Math.floor(Math.random() * 40 + 50);
+            const households = Math.floor(Math.random() * 100 + 10);
+            const confidence = Math.floor(Math.random() * 15 + 85);
+            const riskLevel = confidence > 90 ? 'Low' : confidence > 80 ? 'Medium' : 'High';
+            const riskColor = confidence > 90 ? '#00ff87' : confidence > 80 ? '#ffa726' : '#ff006e';
+            
+            info.innerHTML = `
+                <p><strong>Coordinates:</strong> ${lat}, ${lng}</p>
+                <p><strong>AI Analysis:</strong> Complete <i class="fas fa-check-circle" style="color: #00ff87;"></i></p>
+                <p><strong>Forest Cover:</strong> ${forestCover}% <i class="fas fa-tree" style="color: #00ff87;"></i></p>
+                <p><strong>Households:</strong> ~${households} <i class="fas fa-home" style="color: #60efff;"></i></p>
+                <p><strong>AI Confidence:</strong> ${confidence}% <i class="fas fa-robot" style="color: #60efff;"></i></p>
+                <p><strong>Risk Level:</strong> <span style="color: ${riskColor};">${riskLevel}</span></p>
+                <p><strong>Elevation:</strong> ${Math.floor(Math.random() * 300 + 100)}m</p>
+            `;
+            
+            // Add a marker at clicked location with fade-out effect
+            const tempMarker = L.circleMarker(e.latlng, {
+                color: '#60efff',
+                fillColor: '#60efff',
+                fillOpacity: 0.8,
+                radius: 10
+            }).addTo(map);
+            
+            setTimeout(() => {
+                map.removeLayer(tempMarker);
+            }, 3000);
+        });
+
+        // Initialize Three.js when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initThreeJS();
+            
+            // Handle window resize
+            window.addEventListener('resize', function() {
+                const container = document.getElementById('threejs-container');
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+            
+            console.log('🚀 Advanced FRA Atlas & 3D WebGIS DSS Loaded Successfully!');
+            console.log('🤖 Features: AI Asset Detection, 3D Visualization, Real-time Monitoring, Advanced DSS');
+            console.log('🌟 Enhanced with Three.js 3D capabilities and modern UI');
+        });
+
+        // Add some Easter eggs and advanced features
+        let konamiCode = [];
+        const konamiSequence = [38, 38, 40, 40, 37, 39, 37, 39, 66, 65]; // Up Up Down Down Left Right Left Right B A
+        
+        document.addEventListener('keydown', function(e) {
+            konamiCode.push(e.keyCode);
+            if (konamiCode.length > konamiSequence.length) {
+                konamiCode.shift();
+            }
+            
+            if (konamiCode.length === konamiSequence.length && 
+                konamiCode.every((code, index) => code === konamiSequence[index])) {
+                // Easter egg: Enable particle effects
+                const particles = scene.getObjectByName('particles');
+                if (particles) {
+                    particles.visible = !particles.visible;
+                    alert('🎉 Particle effects ' + (particles.visible ? 'enabled' : 'disabled') + '! Konami Code detected!');
+                }
+                konamiCode = [];
+            }
+        });
+    </script>
+</body>
+</html>
