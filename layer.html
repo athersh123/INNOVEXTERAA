@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Layer Controls</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        body {
+            font-family: 'Montserrat', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(120deg, #43cea2 0%, #185a9d 100%);
+            min-height: 100vh;
+            color: #222;
+        }
+        .nav { background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 1rem 2rem; display: flex; gap: 2rem; }
+        .nav a { color: #185a9d; font-weight: 700; text-decoration: none; transition: color 0.3s; }
+        .nav a:hover { color: #43cea2; }
+        .layer-section { max-width: 600px; margin: 4rem auto; background: rgba(255,255,255,0.85); border-radius: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); padding: 2rem 3rem; }
+        .layer-section h2 { color: #185a9d; margin-bottom: 1.5rem; font-size: 2rem; }
+        .layer-controls { display: grid; gap: 1.2rem; }
+        .layer-toggle { display: flex; align-items: center; background: linear-gradient(120deg, #43cea2 0%, #185a9d 100%); color: #fff; padding: 1rem; border-radius: 12px; cursor: pointer; border: none; font-weight: 600; font-size: 1.1rem; transition: box-shadow 0.3s; }
+        .layer-toggle:hover { box-shadow: 0 4px 20px rgba(67,206,162,0.2); }
+        .layer-toggle input { margin-right: 1rem; transform: scale(1.2); }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="search.html">Smart Search & Filter</a>
+        <a href="layer.html">Advanced Layer Controls</a>
+        <a href="controls.html">Advanced Controls</a>
+        <a href="analytics.html">FRA Analytics</a>
+        <a href="dss.html">AI Decision Support</a>
+    </nav>
+        <div class="layer-section">
+                <h2><i class="fas fa-layer-group"></i> Advanced Layer Controls</h2>
+                <div class="layer-controls">
+                        <label class="layer-toggle"><input type="checkbox" checked> Individual Forest Rights (IFR)</label>
+                        <label class="layer-toggle"><input type="checkbox" checked> Community Forest Rights (CFR)</label>
+                        <label class="layer-toggle"><input type="checkbox" checked> AI-Detected Assets</label>
+                        <label class="layer-toggle"><input type="checkbox"> Satellite Imagery</label>
+                        <label class="layer-toggle"><input type="checkbox"> Population Heatmap</label>
+                        <label class="layer-toggle"><input type="checkbox"> 3D Terrain</label>
+                </div>
+        </div>
+        <div id="map" style="width:100%;height:350px;margin:2rem auto;border-radius:20px;box-shadow:0 4px 24px rgba(0,0,0,0.12);"></div>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                var map = L.map('map').setView([19.5, 84.0], 8);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+            });
+        </script>
+</body>
+</html>
